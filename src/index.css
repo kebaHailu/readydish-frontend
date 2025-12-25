@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Custom Green Restaurant Theme Colors */
+:root {
+  --primary-green: #2d8659; /* Deep sage green */
+  --primary-green-dark: #1f5d3f;
+  --primary-green-light: #3fa372;
+  --accent-mint: #7fb3a8; /* Soft mint */
+  --accent-olive: #6b8e5a; /* Olive tone */
+  --background-cream: #faf9f6; /* Warm cream background */
+  --text-dark: #2c3e2d; /* Dark green-gray text */
+  --text-light: #5a6c5d; /* Light green-gray text */
+  --border-light: #d4e4d9; /* Light green border */
+  --success-green: #4ade80;
+  --warning-amber: #fbbf24;
+  --error-red: #ef4444;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-green);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-green-dark);
+}
+
+/* Smooth transitions */
+* {
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+body {
+  background-color: var(--background-cream);
+  color: var(--text-dark);
+}
