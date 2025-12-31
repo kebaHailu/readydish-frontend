@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Cart, CartItem } from '@/types';
+import type { Cart } from '@/types';
 
 /**
  * Cart Service

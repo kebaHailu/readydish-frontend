@@ -22,7 +22,7 @@ const dishSchema = z.object({
     .refine((val) => !val || val === '' || z.string().url().safeParse(val).success, {
       message: 'Invalid URL format',
     }),
-  isAvailable: z.boolean().default(true),
+  isAvailable: z.boolean(),
 });
 
 type DishFormData = z.infer<typeof dishSchema>;

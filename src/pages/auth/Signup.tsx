@@ -9,7 +9,6 @@ import type { SignupData } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { getErrorMessage, getFieldErrors } from '@/lib/errorHandler';
-import { AxiosError } from 'axios';
 
 const signupSchema = z
   .object({
@@ -37,6 +36,7 @@ const Signup: React.FC = () => {
     register,
     handleSubmit,
     formState: { errors },
+    setError: setFormError,
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
   });
@@ -58,10 +58,12 @@ const Signup: React.FC = () => {
       showError(errorMessage);
       
       // Set field-specific errors if available
-      if (err instanceof AxiosError) {
-        const fieldErrors = getFieldErrors(err);
-        // You can use setError on individual fields if needed
-        // For now, we'll just show the general error
+      const fieldErrors = getFieldErrors(err);
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+        // Set field-specific errors
+        for (const key in fieldErrors) {
+          setFormError(key as keyof SignupData, { type: 'manual', message: fieldErrors[key] });
+        }
       }
     } finally {
       setIsLoading(false);

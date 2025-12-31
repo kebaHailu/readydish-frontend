@@ -21,9 +21,12 @@ export const getErrorMessage = (error: unknown): string => {
     // Server responded with error
     const apiError = error.response.data as ApiError;
     
-    // Check if there's a main error message
+    // Check if there's a main error message (prefer 'error' field, fallback to 'message')
     if (apiError?.error) {
       return apiError.error;
+    }
+    if (apiError?.message) {
+      return apiError.message;
     }
 
     // Check for field-specific errors

@@ -223,8 +223,10 @@ export interface ApiResponse<T> {
  * Error response from API
  */
 export interface ApiError {
-  message: string;
-  errors?: Record<string, string[]>; // Field-specific errors
+  success?: false;
+  error?: string; // Main error message (from backend)
+  message?: string; // Alternative error message field
+  errors?: Record<string, string | string[]>; // Field-specific errors (can be string or array)
   statusCode?: number;
 }
 

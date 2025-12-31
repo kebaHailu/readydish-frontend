@@ -9,7 +9,6 @@ import type { LoginData } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { getErrorMessage, getFieldErrors } from '@/lib/errorHandler';
-import { AxiosError } from 'axios';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
