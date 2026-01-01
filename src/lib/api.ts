@@ -39,16 +39,42 @@ api.interceptors.response.use(
     // Handle 401 Unauthorized - but only for authenticated requests, not login/signup attempts
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
+      const method = error.config?.method?.toLowerCase() || '';
       
-      // Don't redirect if it's an auth endpoint (login/signup) - let the component handle the error
-      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup');
+      // Check if this is an authentication endpoint (login, signup, password reset)
+      // We check both the URL path and the request method
+      const isAuthEndpoint = 
+        url.includes('/auth/login') || 
+        url.includes('/auth/signup') ||
+        url.includes('/auth/forgot-password') ||
+        url.includes('/auth/reset-password') ||
+        url.includes('/auth/verify');
       
-      if (!isAuthEndpoint) {
+      // Check if we're currently on an auth page
+      const currentPath = window.location.pathname;
+      const isOnAuthPage = 
+        currentPath.includes('/login') || 
+        currentPath.includes('/signup') ||
+        currentPath.includes('/forgot-password') ||
+        currentPath.includes('/reset-password') ||
+        currentPath.includes('/verify-email');
+      
+      // NEVER redirect if:
+      // 1. It's a POST request to an auth endpoint (login/signup attempts)
+      // 2. We're already on an auth page
+      // This prevents redirects during login/signup attempts
+      const shouldNotRedirect = 
+        (method === 'post' && isAuthEndpoint) || 
+        isOnAuthPage ||
+        isAuthEndpoint;
+      
+      if (!shouldNotRedirect) {
         // Only clear auth and redirect for authenticated endpoints that return 401
+        // This handles cases where a user's token expired while using the app
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem(STORAGE_KEYS.USER);
         // Only redirect if not already on login page
-        if (!window.location.pathname.includes('/login')) {
+        if (!currentPath.includes('/login')) {
           window.location.href = '/login';
         }
       }

@@ -38,15 +38,18 @@ const Login: React.FC = () => {
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     setError(null);
+    // Clear any previous rate limit state
+    setRateLimitReset(null);
 
     try {
       await login(data);
       showSuccess('Login successful!');
       
-      // Redirect to intended page or default
+      // Only redirect on successful login
       const from = (location.state as any)?.from?.pathname || ROUTES.MENU;
       navigate(from, { replace: true });
     } catch (err: unknown) {
+      // Prevent any navigation on error - stay on login page
       const errorMessage = getErrorMessage(err);
       const fieldErrors = getFieldErrors(err);
       
@@ -68,6 +71,9 @@ const Login: React.FC = () => {
       // Always set the general error message (for 401, this will be "Invalid email or password")
       setError(errorMessage);
       showError(errorMessage);
+      
+      // Ensure we stay on the login page - don't navigate away
+      // The error should be displayed and user can try again
     } finally {
       setIsLoading(false);
     }
