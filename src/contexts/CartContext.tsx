@@ -45,10 +45,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         const storedCart = localStorage.getItem(STORAGE_KEYS.CART);
         if (storedCart) {
           const cartItems: CartItem[] = JSON.parse(storedCart);
-          setItems(cartItems);
+          // Validate cart items structure
+          const validItems = cartItems.filter(
+            (item) => item && item.dish && item.dish.id && typeof item.quantity === 'number'
+          );
+          setItems(validItems);
         }
       } catch (error) {
         console.error('Failed to load cart from storage:', error);
+        setItems([]);
       }
       return;
     }
@@ -57,11 +62,31 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const cart = await cartService.getCart();
-      setItems(cart.items);
+      // Validate cart items structure and filter out invalid items
+      const validItems = (cart.items || []).filter(
+        (item) => item && item.dish && item.dish.id && typeof item.quantity === 'number' && item.dish.price !== undefined
+      );
+      setItems(validItems);
       // Sync to localStorage as backup
-      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(cart.items));
+      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(validItems));
     } catch (error) {
       console.error('Failed to load cart:', error);
+      // On error, try to load from localStorage as fallback
+      try {
+        const storedCart = localStorage.getItem(STORAGE_KEYS.CART);
+        if (storedCart) {
+          const cartItems: CartItem[] = JSON.parse(storedCart);
+          const validItems = cartItems.filter(
+            (item) => item && item.dish && item.dish.id && typeof item.quantity === 'number'
+          );
+          setItems(validItems);
+        } else {
+          setItems([]);
+        }
+      } catch (storageError) {
+        console.error('Failed to load cart from storage fallback:', storageError);
+        setItems([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -148,8 +173,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     localStorage.removeItem(STORAGE_KEYS.CART);
   }, [isAuthenticated]);
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + item.dish.price * item.quantity, 0);
+  const totalItems = items.reduce((sum, item) => {
+    if (!item || typeof item.quantity !== 'number') return sum;
+    return sum + item.quantity;
+  }, 0);
+  
+  const totalPrice = items.reduce((sum, item) => {
+    if (!item || !item.dish || typeof item.dish.price !== 'number' || typeof item.quantity !== 'number') return sum;
+    return sum + item.dish.price * item.quantity;
+  }, 0);
 
   const value: CartContextType = {
     items,

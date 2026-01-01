@@ -41,7 +41,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 
         if (storedUser && token) {
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          // Validate user object has required fields
+          if (parsedUser && parsedUser.id && parsedUser.email && parsedUser.role) {
+            setUser(parsedUser);
+          } else {
+            console.error('Invalid user data in storage');
+            localStorage.removeItem(STORAGE_KEYS.USER);
+            localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+          }
         }
       } catch (error) {
         console.error('Failed to load user from storage:', error);
@@ -58,6 +66,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (data: LoginData) => {
     try {
       const response = await authService.login(data);
+      
+      // Validate response structure
+      if (!response || !response.token || !response.user) {
+        throw new Error('Invalid login response from server');
+      }
+      
+      // Validate user object has required fields
+      if (!response.user.id || !response.user.email || !response.user.role) {
+        throw new Error('Invalid user data received from server');
+      }
       
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, response.token);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(response.user));

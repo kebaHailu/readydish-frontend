@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,8 @@ import { ROUTES } from '@/lib/constants';
 import type { SignupData } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { getErrorMessage, getFieldErrors } from '@/lib/errorHandler';
+import { getErrorMessage, getFieldErrors, getRateLimitInfo, formatRetryTime } from '@/lib/errorHandler';
+import { AxiosError } from 'axios';
 
 const signupSchema = z
   .object({
@@ -31,6 +32,8 @@ const Signup: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [rateLimitReset, setRateLimitReset] = useState<number | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState<string>('');
 
   const {
     register,
@@ -54,8 +57,14 @@ const Signup: React.FC = () => {
       }, 2000);
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err);
-      setError(errorMessage);
-      showError(errorMessage);
+      
+      // Check for rate limiting
+      if (err instanceof AxiosError && err.response?.status === 429) {
+        const rateLimitInfo = getRateLimitInfo(err);
+        if (rateLimitInfo?.reset) {
+          setRateLimitReset(rateLimitInfo.reset);
+        }
+      }
       
       // Set field-specific errors if available
       const fieldErrors = getFieldErrors(err);
@@ -65,10 +74,41 @@ const Signup: React.FC = () => {
           setFormError(key as keyof SignupData, { type: 'manual', message: fieldErrors[key] });
         }
       }
+      
+      // Always set the general error message
+      setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimitReset) {
+      setRetryCountdown('');
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const secondsUntilReset = rateLimitReset - now;
+
+      if (secondsUntilReset <= 0) {
+        setRateLimitReset(null);
+        setRetryCountdown('');
+        setError(null);
+        return;
+      }
+
+      setRetryCountdown(formatRetryTime(rateLimitReset));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [rateLimitReset]);
 
   if (success) {
     return (
@@ -105,8 +145,20 @@ const Signup: React.FC = () => {
           <h2 className="text-2xl font-semibold text-[#2c3e2d] mb-6">Sign Up</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-red-700 text-sm font-medium">{error}</p>
+                  {rateLimitReset && retryCountdown && (
+                    <p className="text-red-600 text-xs mt-1">
+                      You can try again {retryCountdown}.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -148,9 +200,10 @@ const Signup: React.FC = () => {
               variant="primary"
               size="lg"
               isLoading={isLoading}
-              className="w-full bg-[#2d8659] hover:bg-[#1f5d3f] text-white"
+              disabled={!!rateLimitReset}
+              className="w-full bg-[#2d8659] hover:bg-[#1f5d3f] text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Account
+              {rateLimitReset ? `Please wait ${retryCountdown}` : 'Create Account'}
             </Button>
           </form>
 

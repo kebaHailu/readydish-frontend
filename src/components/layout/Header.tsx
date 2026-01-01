@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemCount = 0, onLogout }) =>
           </Link>
 
           {/* Navigation */}
-          {user && (
+          {user && user.role && (
             <nav className="hidden md:flex items-center space-x-6">
               {user.role === UserRole.CUSTOMER ? (
                 <>
@@ -78,7 +78,7 @@ const Header: React.FC<HeaderProps> = ({ user, cartItemCount = 0, onLogout }) =>
 
           {/* Right side actions */}
           <div className="flex items-center space-x-4">
-            {user ? (
+            {user && user.role ? (
               <>
                 {user.role === UserRole.CUSTOMER && (
                   <Link

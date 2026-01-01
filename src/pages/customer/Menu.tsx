@@ -35,13 +35,25 @@ const Menu: React.FC = () => {
         search: searchQuery || undefined,
       });
       
-      setDishes(response.data);
-      setTotalPages(response.meta.totalPages);
-      setTotal(response.meta.total);
+      // Validate response structure
+      if (response && response.data && Array.isArray(response.data)) {
+        setDishes(response.data);
+        setTotalPages(response.meta?.totalPages || 1);
+        setTotal(response.meta?.total || 0);
+      } else {
+        console.error('Invalid response structure:', response);
+        setDishes([]);
+        setTotalPages(1);
+        setTotal(0);
+      }
     } catch (error: unknown) {
       console.error('Failed to load dishes:', error);
       const errorMessage = getErrorMessage(error);
       showError(errorMessage);
+      // Set empty state on error to prevent crashes
+      setDishes([]);
+      setTotalPages(1);
+      setTotal(0);
     } finally {
       setIsLoading(false);
     }

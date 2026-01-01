@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +8,8 @@ import { ROUTES } from '@/lib/constants';
 import type { LoginData } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { getErrorMessage, getFieldErrors } from '@/lib/errorHandler';
+import { getErrorMessage, getFieldErrors, getRateLimitInfo, formatRetryTime } from '@/lib/errorHandler';
+import { AxiosError } from 'axios';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -22,6 +23,8 @@ const Login: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimitReset, setRateLimitReset] = useState<number | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState<string>('');
 
   const {
     register,
@@ -47,19 +50,55 @@ const Login: React.FC = () => {
       const errorMessage = getErrorMessage(err);
       const fieldErrors = getFieldErrors(err);
       
-      if (fieldErrors) {
-        // Set field-specific errors
+      // Check for rate limiting
+      if (err instanceof AxiosError && err.response?.status === 429) {
+        const rateLimitInfo = getRateLimitInfo(err);
+        if (rateLimitInfo?.reset) {
+          setRateLimitReset(rateLimitInfo.reset);
+        }
+      }
+      
+      // Set field-specific errors if available
+      if (fieldErrors && Object.keys(fieldErrors).length > 0) {
         for (const key in fieldErrors) {
           setFormError(key as keyof LoginData, { type: 'manual', message: fieldErrors[key] });
         }
-      } else {
-        setError(errorMessage);
       }
+      
+      // Always set the general error message (for 401, this will be "Invalid email or password")
+      setError(errorMessage);
       showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimitReset) {
+      setRetryCountdown('');
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const secondsUntilReset = rateLimitReset - now;
+
+      if (secondsUntilReset <= 0) {
+        setRateLimitReset(null);
+        setRetryCountdown('');
+        setError(null);
+        return;
+      }
+
+      setRetryCountdown(formatRetryTime(rateLimitReset));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [rateLimitReset]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
@@ -99,8 +138,20 @@ const Login: React.FC = () => {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-red-700 text-sm font-medium">{error}</p>
+                    {rateLimitReset && retryCountdown && (
+                      <p className="text-red-600 text-xs mt-1">
+                        You can try again {retryCountdown}.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -135,9 +186,10 @@ const Login: React.FC = () => {
                 variant="primary"
                 size="lg"
                 isLoading={isLoading}
-                className="w-full bg-[#2d8659] hover:bg-[#1f5d3f] text-white shadow-md hover:shadow-lg transition-all duration-300"
+                disabled={!!rateLimitReset}
+                className="w-full bg-[#2d8659] hover:bg-[#1f5d3f] text-white shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sign In
+                {rateLimitReset ? `Please wait ${retryCountdown}` : 'Sign In'}
               </Button>
             </form>
 
